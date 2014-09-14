@@ -32,4 +32,4 @@ ToDo
 
 1. Make shortcuts for "Pick color" work :P
 2. Some kind of GUI
-3. Instruction for configuring plugin in text-mode
+3. Instruction for configuration of plugin in text-mode
