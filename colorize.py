@@ -4,12 +4,16 @@
 
 """ colorize.py - Terminator Plugin to change color of titlebar of individual
 terminals """
+import gobject
 
 import os
 import sys
 import gtk
 from terminatorlib.config import Config
+from terminatorlib.container import Container
 import terminatorlib.plugin as plugin
+from terminatorlib.terminal import Terminal
+from terminatorlib.terminator import Terminator
 from terminatorlib.translation import _
 
 AVAILABLE = ['Colorize']
@@ -28,8 +32,6 @@ class ColorizeConfig:
     def get(self, item):
 
         if item in self.new_config:
-            if 'fg' in item:
-                print 'item on list, returning:', item, self.new_config[item]
             return self.new_config[item]
         else:
             return self.previous_config[item]
@@ -42,19 +44,43 @@ class Colorize(plugin.MenuItem):
     color_set = None
     ratio = 0.7
 
+    presets = {
+        'color0' : {
+            'name'   : ' blue',
+            'title_transmit_bg_color': '#0076C9'
+        },
+        'color1' : {
+            'name'   : 'purple',
+            'title_transmit_bg_color': '#B20DAC'
+        },
+        'color2' : {
+            'name'   : 'yellow',
+            'title_transmit_bg_color': '#EAF12A'
+        },
+        'color3' : {
+            'name'   : 'green',
+            'title_transmit_bg_color': '#50B20D'
+        },
+        'color4' : {
+            'name'   : 'cyan',
+            'title_transmit_bg_color': '#2DF2C1'
+        }
+    }
+
     def __init__(self):
         plugin.MenuItem.__init__(self)
         self.config = Config()
         colorize_config = self.config.plugin_get_config(self.__class__.__name__)
-
+        if not colorize_config:
+            colorize_config = self.presets
         self.color_set = []
         counter = 0
-        while colorize_config.get('color' + str(counter)):
-            self.color_set.append(colorize_config.get('color' + str(counter)))
-            counter += 1
+        if colorize_config:
+            while colorize_config.get('color' + str(counter)):
+                self.color_set.append(colorize_config.get('color' + str(counter)))
+                counter += 1
 
         print self.color_set
-
 
     def callback(self, menuitems, menu, terminal):
         """ Add save menu item to log 'content'the menu"""
@@ -73,10 +99,21 @@ class Colorize(plugin.MenuItem):
 
         counter = 1
         for color in self.color_set:
-            color_item = gtk.MenuItem(_('Color') + ' ' + str(counter))
-            color_item.connect("activate", self.pick_color, terminal, counter)
+            if color.get('name'):
+                suffix = color['name']
+            else:
+                suffix = str(counter)
+            color_item = gtk.MenuItem(_('Color') + ' ' + suffix)
+            color_item.connect("activate", self.pick_color, terminal, counter - 1)
             color_item.set_has_tooltip(True)
             color_item.set_tooltip_text("Set this color for current terminal")
+
+            accel_group = gtk.AccelGroup()
+
+
+            color_item.add_accelerator("activate", accel_group,
+                                       ord(str(counter)), gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK, gtk.ACCEL_VISIBLE)
+
 
             pick_color_menu.append(color_item)
             counter += 1
@@ -86,8 +123,49 @@ class Colorize(plugin.MenuItem):
         item.set_submenu(pick_color_menu)
         menuitems.append(item)
 
-    def pick_color(self, _widget, Terminal, Index):
-        pass
+    def get_terminal_container(self, terminal, container=None):
+        terminator = Terminator()
+        if not container:
+            for window in terminator.windows:
+                owner = self.get_terminal_container(terminal, window)
+                if owner:
+                    return owner
+        else:
+            for child in container.get_children():
+                if isinstance(child, Terminal) and child == terminal:
+                    return container
+                if isinstance(child, Container):
+                    owner = self.get_terminal_container(terminal, child)
+                if owner:
+                    return owner
+
+
+    def register_signals(self, container, terminal):
+        container.signals.append({
+            'name': 'pick-first-color',
+            'flags': gobject.SIGNAL_RUN_LAST,
+            'return_type': gobject.TYPE_NONE,
+            'param_types': None
+        })
+
+        # container.signals.append({
+        #     'name': 'split-vert-clone',
+        #     'flags': gobject.SIGNAL_RUN_LAST,
+        #     'return_type': gobject.TYPE_NONE,
+        #     'param_types': None
+        # })
+
+        container.register_signals(terminal)
+
+        container.connect_child(terminal, 'pick-first-color', self.pick_first_color)
+        # container.connect_child(terminal, 'split-vert-clone', self.split_vert)
+
+    def pick_first_color(self, terminal):
+        self.pick_color(None, terminal, 1)
+
+    def pick_color(self, _widget, terminal, index):
+        print 'index', index
+        self.set_titlebar_color(terminal, gtk.gdk.Color(self.color_set[index]['title_transmit_bg_color']))
 
     def change_color(self, _widget, Terminal):
         """ Handle menu item callback by saving text to a file"""
@@ -105,49 +183,6 @@ class Colorize(plugin.MenuItem):
         response = color_dialog.run()
         if response == gtk.RESPONSE_OK:
             self.set_titlebar_color(Terminal, color_sel.get_current_color())
-            # new_transmit_bg_color = color_sel.get_current_color()
-            # new_inactive_bg_color = self.get_inactive_color(new_transmit_bg_color)
-            #
-            #
-            # new_transmit_fg_color = self.get_font_color(new_transmit_bg_color)
-            # new_inactive_fg_color = self.get_font_color(new_inactive_bg_color)
-            #
-            # new_color_config = {
-            #     'title_transmit_bg_color': new_transmit_bg_color.to_string(),
-            #     'title_inactive_bg_color': new_inactive_bg_color.to_string(),
-            #     'title_transmit_fg_color': new_transmit_fg_color.to_string(),
-            #     'title_inactive_fg_color': new_inactive_fg_color.to_string()
-            # }
-            #
-            # new_config = ColorizeConfig(Terminal.titlebar.config, new_color_config)
-            # Terminal.titlebar.config = new_config
-
-
-
-            # Terminal.titlebar.config['title_transmit_bg_color'] = color_sel.get_current_color().to_string()
-        # response = savedialog.run()
-        # if response == gtk.RESPONSE_OK:
-        #     try:
-        #         # logfile = os.path.join(savedialog.get_current_folder(),
-        #         #                        savedialog.get_filename())
-        #         fd = open(logfile, 'w+')
-        #         # Save log file path,
-        #         # associated file descriptor, signal handler id
-        #         # and last saved col,row positions respectively.
-        #         vte_terminal = Terminal.get_vte()
-        #         (col, row) = vte_terminal.get_cursor_position()
-        #
-        #         self.loggers[vte_terminal] = {"filepath":logfile,
-        #                                       "handler_id":0, "fd":fd,
-        #                                       "col":col, "row":row}
-        #         # Add contents-changed callback
-        #         self.loggers[vte_terminal]["handler_id"] = vte_terminal.connect('contents-changed', self.save)
-        #     except:
-        #         e = sys.exc_info()[1]
-        #         error = gtk.MessageDialog(None, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR,
-        #                                   gtk.BUTTONS_OK, e.strerror)
-        #         error.run()
-        #         error.destroy()
 
         color_dialog.destroy()
 
