@@ -2,7 +2,7 @@
 Colorize
 ========
 
-Colorize - terminator plugin for coloring titlebar ofeach terminal separately
+Colorize - terminator plugin for coloring titlebar of each terminal separately
 
 Screenshot
 ==========
