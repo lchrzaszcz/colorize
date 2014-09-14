@@ -12,7 +12,8 @@ Screenshot
 Installation
 ============
 
-Just copy colorize.py to plugin directory in terminator installation (for example: /usr/share/terminator/terminatorlib/plugins)
+1. Copy colorize.py to plugin directory in terminator installation (for example: /usr/share/terminator/terminatorlib/plugins)
+2. Enable plugin in plugin preferences (Right click on terminator > Preferences > Plugins > click colorize)
 
 How to use
 ==========
