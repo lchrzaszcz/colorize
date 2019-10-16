@@ -4,19 +4,21 @@
 
 """ colorize.py - Terminator Plugin to change color of titlebar of individual
 terminals """
-import gobject
+from gi.repository import GObject
 
 import os
 import sys
-import gtk
+from terminatorlib.util import dbg
 from terminatorlib.config import Config
-from terminatorlib.container import Container
+from gi.repository import Gtk, Gdk
 import terminatorlib.plugin as plugin
-from terminatorlib.terminal import Terminal
-from terminatorlib.terminator import Terminator
 from terminatorlib.translation import _
+from terminatorlib.terminator import Terminator
+from terminatorlib.terminal import Terminal
+from terminatorlib.container import Container
 
 AVAILABLE = ['Colorize']
+
 
 class ColorizeConfig:
     new_config = {}
@@ -28,6 +30,10 @@ class ColorizeConfig:
 
     def __getitem__(self, item):
         return self.get(item)
+
+    def __getattr__(self, name):
+        attr = getattr(self.previous_config, name)
+        return attr
 
     def get(self, item):
 
@@ -45,24 +51,24 @@ class Colorize(plugin.MenuItem):
     ratio = 0.7
 
     presets = {
-        'color0' : {
-            'name'   : ' blue',
+        'color0': {
+            'name': ' blue',
             'title_transmit_bg_color': '#0076C9'
         },
-        'color1' : {
-            'name'   : 'purple',
+        'color1': {
+            'name': 'purple',
             'title_transmit_bg_color': '#B20DAC'
         },
-        'color2' : {
-            'name'   : 'yellow',
+        'color2': {
+            'name': 'yellow',
             'title_transmit_bg_color': '#EAF12A'
         },
-        'color3' : {
-            'name'   : 'green',
+        'color3': {
+            'name': 'green',
             'title_transmit_bg_color': '#50B20D'
         },
-        'color4' : {
-            'name'   : 'cyan',
+        'color4': {
+            'name': 'cyan',
             'title_transmit_bg_color': '#2DF2C1'
         }
     }
@@ -80,13 +86,12 @@ class Colorize(plugin.MenuItem):
                 self.color_set.append(colorize_config.get('color' + str(counter)))
                 counter += 1
 
-        print self.color_set
+        dbg(self.color_set)
 
     def callback(self, menuitems, menu, terminal):
-        """ Add save menu item to log 'content'the menu"""
+        """ Add save menu item to the menu"""
         vte_terminal = terminal.get_vte()
-
-        change_color_item = gtk.MenuItem(_('Change color'))
+        change_color_item = Gtk.MenuItem.new_with_mnemonic(_('Choose color'))
         change_color_item.connect("activate", self.change_color, terminal)
         change_color_item.set_has_tooltip(True)
         change_color_item.set_tooltip_text("Change titlebar color of this terminal")
@@ -95,7 +100,7 @@ class Colorize(plugin.MenuItem):
 
         # sub menu
 
-        pick_color_menu = gtk.Menu()
+        pick_color_menu = Gtk.Menu.new()
 
         counter = 1
         for color in self.color_set:
@@ -103,23 +108,21 @@ class Colorize(plugin.MenuItem):
                 suffix = color['name']
             else:
                 suffix = str(counter)
-            color_item = gtk.MenuItem(_('Color') + ' ' + suffix)
+            color_item = Gtk.MenuItem.new_with_mnemonic(_('Color') + ' ' + suffix)
             color_item.connect("activate", self.pick_color, terminal, counter - 1)
             color_item.set_has_tooltip(True)
             color_item.set_tooltip_text("Set this color for current terminal")
 
-            accel_group = gtk.AccelGroup()
-
+            accel_group = Gtk.AccelGroup.new()
 
             color_item.add_accelerator("activate", accel_group,
-                                       ord(str(counter)), gtk.gdk.CONTROL_MASK | gtk.gdk.SHIFT_MASK, gtk.ACCEL_VISIBLE)
-
+                                       ord(str(counter)), Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK,
+                                       Gtk.AccelFlags.VISIBLE)
 
             pick_color_menu.append(color_item)
             counter += 1
 
-
-        item = gtk.MenuItem(_('Pick color'))
+        item = Gtk.MenuItem.new_with_mnemonic(_('Pick color'))
         item.set_submenu(pick_color_menu)
         menuitems.append(item)
 
@@ -139,12 +142,11 @@ class Colorize(plugin.MenuItem):
                 if owner:
                     return owner
 
-
     def register_signals(self, container, terminal):
         container.signals.append({
             'name': 'pick-first-color',
-            'flags': gobject.SIGNAL_RUN_LAST,
-            'return_type': gobject.TYPE_NONE,
+            'flags': GObject.SignalFlags.RUN_LAST,
+            'return_type': GObject.GType.NONE,
             'param_types': None
         })
 
@@ -164,50 +166,46 @@ class Colorize(plugin.MenuItem):
         self.pick_color(None, terminal, 1)
 
     def pick_color(self, _widget, terminal, index):
-        print 'index', index
-        self.set_titlebar_color(terminal, gtk.gdk.Color(self.color_set[index]['title_transmit_bg_color']))
+        dbg(['picking color', 'index', index, self.color_set[index]['title_transmit_bg_color']])
+        self.set_titlebar_color(terminal, Gdk.Color.parse(self.color_set[index]['title_transmit_bg_color']).color)
 
-    def change_color(self, _widget, Terminal):
+    def change_color(self, _widget, terminal):
         """ Handle menu item callback by saving text to a file"""
-        color_dialog = gtk.ColorSelectionDialog("Pick new terminal's titlebar color")
-        color_sel = color_dialog.colorsel
+        color_dialog = Gtk.ColorSelectionDialog("Pick new terminal's titlebar color")
+        color_sel = color_dialog.get_color_selection()
 
         # set previous colors
-        previous_color = gtk.gdk.color_parse(Terminal.config['title_transmit_bg_color'])
+        previous_color = Gdk.color_parse(terminal.config['title_transmit_bg_color'])
 
         color_sel.set_previous_color(previous_color)
         color_sel.set_current_color(previous_color)
         color_sel.set_has_palette(True)
 
-
         response = color_dialog.run()
-        if response == gtk.RESPONSE_OK:
-            self.set_titlebar_color(Terminal, color_sel.get_current_color())
+        if response == Gtk.ResponseType.OK:
+            self.set_titlebar_color(terminal, color_sel.get_current_color())
 
         color_dialog.destroy()
 
-
     def get_inactive_color(self, transmit_color):
-        return gtk.gdk.Color(transmit_color.red_float * self.ratio,
-                      transmit_color.green_float * self.ratio,
-                      transmit_color.blue_float * self.ratio)
-
+        return Gdk.Color(transmit_color.red * self.ratio,
+                         transmit_color.green * self.ratio,
+                         transmit_color.blue * self.ratio)
 
     def get_font_color(self, bg_color):
-        lightness = (((bg_color.red_float * 299) +
-                      (bg_color.green_float * 587) +
-                      (bg_color.blue_float * 114)) /1000)
+        lightness = (((bg_color.red * 299) +
+                      (bg_color.green * 587) +
+                      (bg_color.blue * 114)) / 1000)
 
-
-        new_fg_color = gtk.gdk.Color(0, 0, 0)
+        new_fg_color = Gdk.Color(0, 0, 0)
 
         if lightness < 0.5:
-            new_fg_color = gtk.gdk.Color(65535, 65535, 65535)
+            new_fg_color = Gdk.Color(65535, 65535, 65535)
 
         return new_fg_color
 
-
-    def set_titlebar_color(self, Terminal, color):
+    def set_titlebar_color(self, terminal, color):
+        dbg(['setting titlebar color', color])
         new_transmit_bg_color = color
         new_inactive_bg_color = self.get_inactive_color(new_transmit_bg_color)
 
@@ -221,7 +219,5 @@ class Colorize(plugin.MenuItem):
             'title_inactive_fg_color': new_inactive_fg_color.to_string()
         }
 
-        new_config = ColorizeConfig(Terminal.titlebar.config, new_color_config)
-        Terminal.titlebar.config = new_config
-
-
+        new_config = ColorizeConfig(terminal.titlebar.config, new_color_config)
+        terminal.titlebar.config = new_config
