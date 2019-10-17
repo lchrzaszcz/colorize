@@ -49,6 +49,7 @@ class Colorize(plugin.MenuItem):
     config = None
     color_set = None
     ratio = 0.7
+    bg_ratio = 0.09
 
     presets = {
         'color0': {
@@ -91,6 +92,20 @@ class Colorize(plugin.MenuItem):
     def callback(self, menuitems, menu, terminal):
         """ Add save menu item to the menu"""
         vte_terminal = terminal.get_vte()
+
+        if self.is_terminal_default_bg(terminal):
+            change_bgcolor_item = Gtk.MenuItem.new_with_mnemonic(_('Colorize background'))
+            change_bgcolor_item.connect("activate", self.colorize_terminal_bg_color, terminal)
+            change_bgcolor_item.set_tooltip_text("Change background color of this terminal")
+        else:
+            change_bgcolor_item = Gtk.MenuItem.new_with_mnemonic(_('Restore background'))
+            change_bgcolor_item.connect("activate", self.reset_terminal_bg_color, terminal)
+            change_bgcolor_item.set_tooltip_text("Change background color of this terminal back")
+
+        change_bgcolor_item.set_has_tooltip(True)
+
+        menuitems.append(change_bgcolor_item)
+
         change_color_item = Gtk.MenuItem.new_with_mnemonic(_('Choose color'))
         change_color_item.connect("activate", self.change_color, terminal)
         change_color_item.set_has_tooltip(True)
@@ -125,6 +140,12 @@ class Colorize(plugin.MenuItem):
         item = Gtk.MenuItem.new_with_mnemonic(_('Pick color'))
         item.set_submenu(pick_color_menu)
         menuitems.append(item)
+
+    def is_terminal_default_bg(self, terminal):
+        bg_color = Gdk.RGBA()
+        bg_color.parse(terminal.config['background_color'])
+
+        return terminal.bgcolor.equal(bg_color)
 
     def get_terminal_container(self, terminal, container=None):
         terminator = Terminator()
@@ -221,3 +242,22 @@ class Colorize(plugin.MenuItem):
 
         new_config = ColorizeConfig(terminal.titlebar.config, new_color_config)
         terminal.titlebar.config = new_config
+
+        if not self.is_terminal_default_bg(terminal):
+            self.colorize_terminal_bg_color(None, terminal)
+
+    def colorize_terminal_bg_color(self, _widget, terminal):
+        bg_color = Gdk.RGBA()
+        bg_color.parse(terminal.titlebar.config['title_transmit_bg_color'])
+
+        bg_color.red *= self.bg_ratio
+        bg_color.green *= self.bg_ratio
+        bg_color.blue *= self.bg_ratio
+
+        terminal.bgcolor = bg_color
+
+    def reset_terminal_bg_color(self, _widget, terminal):
+        bg_color = Gdk.RGBA()
+        bg_color.parse(terminal.config['background_color'])
+
+        terminal.bgcolor = bg_color

@@ -2,7 +2,7 @@
 Colorize
 ========
 
-Colorize - terminator plugin for coloring titlebar of each terminal separately
+Colorize - terminator plugin for coloring title bar and background of each terminal separately
 
 Screenshot
 ==========
@@ -12,7 +12,7 @@ Screenshot
 Installation
 ============
 
-1. Copy colorize.py to plugin directory in terminator installation (for example: /usr/share/terminator/terminatorlib/plugins)
+1. Copy colorize.py to plugin directory in terminator installation (for example: `/usr/share/terminator/terminatorlib/plugins` or ` ~/.config/terminator/plugins/`)
 2. Enable plugin in plugin preferences (Right click on terminator > Preferences > Plugins > click colorize)
 
 How to use
@@ -20,8 +20,10 @@ How to use
 
 1. Launch terminator (obvious :P)
 2. Right-click on terminal and
-   - choose "Change color" to set custom color or
-   - choose some preset color from "Pick color" submenu
+   - choose "Choose color" to set custom color or
+   - choose some preset color from "Pick color" submenu or
+   - choose "Colorize background" to set background of the terminal according to the title bar color
+   - choose "Restore background" to reset the background to its default value
 
 Bugs
 ====
